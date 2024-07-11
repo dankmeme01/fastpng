@@ -1,0 +1,23 @@
+{
+	"geode": "3.2.0",
+	"gd": {
+		"win": "2.206",
+		"android": "2.206",
+		"mac": "2.206",
+		"ios": "2.206"
+	},
+	"id": "dankmeme.fastpng",
+	"name": "FastPNG",
+	"version": "v1.0.0",
+	"developer": "dankmeme",
+	"description": "Mod that speeds up loading times slightly",
+	"early-load": true,
+	"settings": {
+		"low-memory-mode": {
+			"type": "bool",
+			"name": "Low Memory Mode",
+			"description": "Makes certain parts of the asset converter use much less memory, at the cost of being slower",
+			"default": false
+		}
+	}
+}
