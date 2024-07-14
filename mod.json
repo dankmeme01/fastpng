@@ -22,7 +22,7 @@
 		"cache-as-raw": {
 			"type": "bool",
 			"name": "Cache Raw Images",
-			"description": "Instead of storing images in a more efficient container, store them as raw, uncompressed data. Makes asset loading <cy>even faster</c>",
+			"description": "Caches images as uncompressed data instead of PNG. Might be faster on systems with a slower CPU and a fast drive",
 			"default": false
 		}
 	}
