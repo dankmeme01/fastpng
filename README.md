@@ -16,7 +16,7 @@ Yes. However, the mod caches resources in a smart way. It does not convert every
 
 ### What resources are cached?
 
-All of them, including resources from other mods and texture packs. The only exception is if the mod uses a non-standard way of loading resources, such as `CCImage::initWithImageData`.
+All of them, including resources from other mods and texture packs. The only exception is if the mod uses a non-standard way of loading resources, such as `CCImage::initWithImageData` (for example images from Level Thumbnails).
 
 ### Will my resources break after a GD update?
 
@@ -24,9 +24,9 @@ No. Rather than relying on filenames, cached images are identified using the CRC
 
 ### Relative benchmarks
 
-Loading GJ_GameSheet03-uhd.png 32 times on my PC (code can be found in `main.cpp`):
+Loading GJ_GameSheet03-uhd.png 32 times on my PC
 
-libpng: 3.487s
-spng: 3.373s
-fpng: 2.373s
+* libpng: 3.487s
+* spng: 3.373s
+* fpng: 2.373s
 
