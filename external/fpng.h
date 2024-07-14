@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <vector>
+#include <boost/container/vector.hpp>
 
 #ifndef FPNG_TRAIN_HUFFMAN_TABLES
 	// Set to 1 when using the -t (training) option in fpng_test to generate new opaque/alpha Huffman tables for the single pass encoder.
@@ -45,7 +46,7 @@ namespace fpng
 	// pImage: pointer to RGB or RGBA image pixels, R first in memory, B/A last.
 	// w/h - image dimensions. Image's row pitch in bytes must is w*num_chans.
 	// num_chans must be 3 or 4.
-	bool fpng_encode_image_to_memory(const void* pImage, uint32_t w, uint32_t h, uint32_t num_chans, std::vector<uint8_t>& out_buf, uint32_t flags = 0);
+	bool fpng_encode_image_to_memory(const void* pImage, uint32_t w, uint32_t h, uint32_t num_chans, boost::container::vector<uint8_t>& out_buf, uint32_t flags = 0);
 
 #ifndef FPNG_NO_STDIO
 	// Fast PNG encoding to the specified file.
@@ -106,6 +107,10 @@ namespace fpng
 	// If FPNG_DECODE_NOT_FPNG is returned, you must decompress the file with a general purpose PNG decoder.
 	// If another error occurs, the file is likely corrupted or invalid, but you can still try to decompress the file with another decoder (which will likely fail).
 	int fpng_decode_memory(const void* pImage, uint32_t image_size, std::vector<uint8_t>& out, uint32_t& width, uint32_t& height, uint32_t& channels_in_file, uint32_t desired_channels);
+
+	// NOTE: fastpng addition
+	int fpng_decode_memory_ptr(const void* pImage, uint32_t image_size, uint8_t*& out, size_t& outSize, uint32_t& width, uint32_t& height, uint32_t& channels_in_file, uint32_t desired_channels);
+	// NOTE: end fastpng addition
 
 #ifndef FPNG_NO_STDIO
 	int fpng_decode_file(const char* pFilename, std::vector<uint8_t>& out, uint32_t& width, uint32_t& height, uint32_t& channels_in_file, uint32_t desired_channels);

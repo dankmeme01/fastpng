@@ -6,7 +6,7 @@ public:
     static FastpngPopup* create();
 
 private:
-    cocos2d::CCLabelBMFont* infolabel;
+    cocos2d::CCLabelBMFont* infolabel = nullptr;
 
     bool setup();
     void remakeLabel();

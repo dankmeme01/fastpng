@@ -1,7 +1,9 @@
 #include "manager.hpp"
 
-#include <decoder.hpp>
-#include <encoder.hpp>
+#include <Geode/loader/SettingEvent.hpp>
+#include <asp/data.hpp>
+
+#include <formats.hpp>
 #include <crc32.hpp>
 #include <fpng.h>
 
@@ -13,8 +15,6 @@ $execute {
 }
 
 FastpngManager::FastpngManager() {
-    fpng::fpng_init();
-
     converterThread.setStartFunction([] {
         utils::thread::setName("PNG Converter");
     });
@@ -29,14 +29,27 @@ FastpngManager::FastpngManager() {
 
     converterThread.setLoopFunction(&FastpngManager::threadFunc);
     converterThread.start(this);
+
+    this->storeAsRaw = Mod::get()->getSettingValue<bool>("cache-as-raw");
+    listenForSettingChanges("cache-as-raw", +[](bool r) {
+        FastpngManager::get().storeAsRaw = r;
+    });
 }
 
 std::filesystem::path FastpngManager::getCacheDir() {
     return Mod::get()->getSaveDir() / "cached-images";
 }
 
-bool FastpngManager::reallocFromCache(unsigned char*& buf, size_t& size, uint32_t checksum) {
-    auto filep = this->getCacheDir() / std::to_string(checksum);
+std::filesystem::path FastpngManager::cacheFileForChecksum(uint32_t checksum) {
+    return this->getCacheDir() / std::to_string(checksum);
+}
+
+bool FastpngManager::storeRawImages() {
+    return storeAsRaw;
+}
+
+bool FastpngManager::reallocFromCache(uint32_t checksum, uint8_t*& outbuf, size_t& outsize) {
+    auto filep = this->cacheFileForChecksum(checksum);
 
     std::basic_ifstream<uint8_t> file(filep, std::ios::in | std::ios::binary);
     if (!file.is_open()) {
@@ -53,14 +66,11 @@ bool FastpngManager::reallocFromCache(unsigned char*& buf, size_t& size, uint32_
         file.seekg(0, std::ios::beg);
     }
 
-    if (fsize > size) {
-        // rellocate
-        delete[] buf;
-        buf = reinterpret_cast<unsigned char*>(std::malloc(fsize));
-    }
+    outsize = fsize;
 
-    file.read(buf, fsize);
-    size = fsize;
+    outbuf = reinterpret_cast<uint8_t*>(std::malloc(fsize));
+
+    file.read(outbuf, fsize);
 
     file.close();
 
@@ -100,8 +110,8 @@ void FastpngManager::threadFunc() {
     // compute the checksum for saving the file
     auto checksum = fastpng::crc32(data.data(), data.size());
 
-    // decode with spng, re-encode with fpng
-    auto res = fastpng::decodePNG(data.data(), data.size());
+    // decode with spng, re-encode with fpng/raw
+    auto res = fastpng::FORMATS.spng.decode(data.data(), data.size());
     if (!res) {
         log::warn("Failed to convert image (decode error: {}): {}", res.unwrapErr(), path);
         return;
@@ -109,9 +119,12 @@ void FastpngManager::threadFunc() {
 
     auto result = std::move(res.unwrap());
 
-    auto encodedres = fastpng::encodePNG(result.data, result.dataSize, result.width, result.height);
-    if (!res) {
-        log::warn("Failed to convert image (encode error: {}): {}", res.unwrapErr(), path);
+    const auto& fmt = storeAsRaw ? fastpng::FORMATS.raw : fastpng::FORMATS.fpng;
+
+    auto encodedres = fmt.encode(result.rawData.get(), result.rawSize, result.width, result.height);
+
+    if (!encodedres) {
+        log::warn("Failed to convert image (encode error: {}): {}", encodedres.unwrapErr(), path);
         return;
     }
 
@@ -119,6 +132,9 @@ void FastpngManager::threadFunc() {
     auto outPath = this->getCacheDir() / std::to_string(checksum);
 
     std::basic_ofstream<uint8_t> file(outPath, std::ios::out | std::ios::binary);
+
+    auto magic = asp::data::byteswap(fmt.magic);
+    file.write(reinterpret_cast<uint8_t*>(&magic), sizeof(magic));
     file.write(encoded.data(), encoded.size());
     file.close();
 

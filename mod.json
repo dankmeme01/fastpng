@@ -18,6 +18,12 @@
 			"name": "Low Memory Mode",
 			"description": "Makes certain parts of the asset converter use much less memory, at the cost of being slower",
 			"default": false
+		},
+		"cache-as-raw": {
+			"type": "bool",
+			"name": "Cache Raw Images",
+			"description": "Instead of storing images in a more efficient container, store them as raw, uncompressed data. Makes asset loading <cy>even faster</c>",
+			"default": false
 		}
 	}
 }

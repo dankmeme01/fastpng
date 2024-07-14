@@ -31,15 +31,18 @@ class FastpngManager : public SingletonBase<FastpngManager> {
     FastpngManager();
 
 public:
-    bool reallocFromCache(unsigned char*& buf, size_t& size, uint32_t checksum);
+    bool reallocFromCache(uint32_t checksum, uint8_t*& outbuf, size_t& outsize);
     void queueForCache(const std::filesystem::path& path, std::vector<uint8_t>&& data);
     std::filesystem::path getCacheDir();
+    std::filesystem::path cacheFileForChecksum(uint32_t crc);
+    bool storeRawImages();
 
 private:
     using ConverterTask = std::pair<std::filesystem::path, std::vector<uint8_t>>;
 
     asp::Thread<FastpngManager*> converterThread;
     asp::Channel<ConverterTask> converterQueue;
+    bool storeAsRaw;
 
     void threadFunc();
 };

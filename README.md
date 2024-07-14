@@ -4,7 +4,7 @@ Mod that speeds up loading times slightly.
 
 ## How does it work?
 
-By default, cocos2d-x (and by proxy Geometry Dash) uses libpng to decode PNG files. While it's not necessarily a slow library, there are definitely better options out there. Specifically, this mod utilizes [spng](https://github.com/randy408/libspng) and [fpng](https://github.com/richgel999/fpng) (slightly modified to compile on clang-cl).
+By default, cocos2d-x (and by proxy Geometry Dash) uses libpng to decode PNG files. While it's not necessarily a slow library, there are definitely better options out there. Specifically, this mod utilizes [spng](https://github.com/randy408/libspng) and [fpng](https://github.com/richgel999/fpng) (slightly modified to suit my needs).
 
 ### Why use 2 different libraries?
 

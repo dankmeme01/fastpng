@@ -1590,7 +1590,7 @@ do_literals:
 		return dst_ofs;
 	}
 
-	static void vector_append(std::vector<uint8_t>& buf, const void* pData, size_t len)
+	static void vector_append(boost::container::vector<uint8_t>& buf, const void* pData, size_t len)
 	{
 		if (len)
 		{
@@ -1670,7 +1670,7 @@ do_literals:
 		}
 	}
 
-	bool fpng_encode_image_to_memory(const void* pImage, uint32_t w, uint32_t h, uint32_t num_chans, std::vector<uint8_t>& out_buf, uint32_t flags)
+	bool fpng_encode_image_to_memory(const void* pImage, uint32_t w, uint32_t h, uint32_t num_chans, boost::container::vector<uint8_t>& out_buf, uint32_t flags)
 	{
 		if (!endian_check())
 		{
@@ -1816,7 +1816,7 @@ do_literals:
 #ifndef FPNG_NO_STDIO
 	bool fpng_encode_image_to_file(const char* pFilename, const void* pImage, uint32_t w, uint32_t h, uint32_t num_chans, uint32_t flags)
 	{
-		std::vector<uint8_t> out_buf;
+		boost::container::vector<uint8_t> out_buf;
 		if (!fpng_encode_image_to_memory(pImage, w, h, num_chans, out_buf, flags))
 			return false;
 
@@ -3148,6 +3148,64 @@ do_literals:
 
 		return FPNG_DECODE_SUCCESS;
 	}
+
+	// NOTE: fastpng addition
+	int fpng_decode_memory_ptr(const void *pImage, uint32_t image_size, uint8_t*& out, size_t& outSize, uint32_t& width, uint32_t& height, uint32_t &channels_in_file, uint32_t desired_channels)
+	{
+		width = 0;
+		height = 0;
+		channels_in_file = 0;
+
+		if ((!pImage) || (!image_size) || ((desired_channels != 3) && (desired_channels != 4)))
+		{
+			assert(0);
+			return FPNG_DECODE_INVALID_ARG;
+		}
+
+		uint32_t idat_ofs = 0, idat_len = 0;
+		int status = fpng_get_info_internal(pImage, image_size, width, height, channels_in_file, idat_ofs, idat_len);
+		if (status)
+			return status;
+
+		const uint64_t mem_needed = (uint64_t)width * height * desired_channels;
+		if (mem_needed > UINT32_MAX)
+			return FPNG_DECODE_FAILED_DIMENSIONS_TOO_LARGE;
+
+		// On 32-bit systems do a quick sanity check before we try to resize the output buffer.
+		if ((sizeof(size_t) == sizeof(uint32_t)) && (mem_needed >= 0x80000000))
+			return FPNG_DECODE_FAILED_DIMENSIONS_TOO_LARGE;
+
+		out = new uint8_t[mem_needed];
+		outSize = mem_needed;
+
+		const uint8_t* pIDAT_data = static_cast<const uint8_t*>(pImage) + idat_ofs + sizeof(uint32_t) * 2;
+		const uint32_t src_len = image_size - (idat_ofs + sizeof(uint32_t) * 2);
+
+		bool decomp_status;
+		if (desired_channels == 3)
+		{
+			if (channels_in_file == 3)
+				decomp_status = fpng_pixel_zlib_decompress_3<3>(pIDAT_data, src_len, idat_len, out, width, height);
+			else
+				decomp_status = fpng_pixel_zlib_decompress_4<3>(pIDAT_data, src_len, idat_len, out, width, height);
+		}
+		else
+		{
+			if (channels_in_file == 3)
+				decomp_status = fpng_pixel_zlib_decompress_3<4>(pIDAT_data, src_len, idat_len, out, width, height);
+			else
+				decomp_status = fpng_pixel_zlib_decompress_4<4>(pIDAT_data, src_len, idat_len, out, width, height);
+		}
+		if (!decomp_status)
+		{
+			// Something went wrong. Either the file data was corrupted, or it doesn't conform to one of our zlib/Deflate constraints.
+			// The conservative thing to do is indicate it wasn't written by us, and let the general purpose PNG decoder handle it.
+			return FPNG_DECODE_NOT_FPNG;
+		}
+
+		return FPNG_DECODE_SUCCESS;
+	}
+	// NOTE: end fastpng addition
 
 #ifndef FPNG_NO_STDIO
 	int fpng_decode_file(const char* pFilename, std::vector<uint8_t>& out, uint32_t& width, uint32_t& height, uint32_t& channels_in_file, uint32_t desired_channels)

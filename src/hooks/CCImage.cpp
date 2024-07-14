@@ -1,14 +1,18 @@
 #include <Geode/modify/CCImage.hpp>
 #include <Geode/Geode.hpp>
 
-#include <decoder.hpp>
+#include <asp/data.hpp>
+
 #include <manager.hpp>
+#include <formats.hpp>
+#include <ccimageext.hpp>
 #include <crc32.hpp>
 
 using namespace geode::prelude;
 using fastpng::CCImageExt;
 
 static bool lowMemoryMode = false;
+
 $execute {
     lowMemoryMode = Mod::get()->getSettingValue<bool>("low-memory-mode");
 }
@@ -18,7 +22,6 @@ class $modify(CCImage) {
     CCImageExt* ext() {
         return static_cast<CCImageExt*>(static_cast<CCImage*>(this));
     }
-
 
     static void onModify(auto& self) {
         // run last since we dont call the originals
@@ -37,7 +40,10 @@ class $modify(CCImage) {
 
         // check if we have cached it already
         auto checksum = fastpng::crc32(buffer, size);
-        if (!FastpngManager::get().reallocFromCache(buffer, size, checksum)) {
+        uint8_t* cachedBuf = nullptr;
+        size_t cachedSize = 0;
+
+        if (!FastpngManager::get().reallocFromCache(checksum, cachedBuf, cachedSize)) {
             // queue the image to be cached..
             std::vector<uint8_t> data;
             if (!lowMemoryMode) {
@@ -45,19 +51,53 @@ class $modify(CCImage) {
             }
 
             FastpngManager::get().queueForCache(std::filesystem::path(CCFileUtils::get()->fullPathForFilename(path, false)), std::move(data));
-        } else {
-            // log::warn("Loading cached image: {}", path);
+            bool result = this->_initWithPngData(buffer, size);
+            delete[] buffer;
+            return result;
         }
 
-        auto result = this->_initWithPngData(buffer, size);
+        const auto& usedFormat = FastpngManager::get().storeRawImages() ? fastpng::FORMATS.raw : fastpng::FORMATS.fpng;
+
+        auto magic = asp::data::byteswap(*reinterpret_cast<uint32_t*>(cachedBuf));
+
+        std::string error;
+        if (magic == usedFormat.magic) {
+            auto result = this->ext()->initWithFormat(cachedBuf + sizeof(uint32_t), cachedSize - sizeof(uint32_t), usedFormat);
+            if (result) {
+                delete[] buffer;
+                delete[] cachedBuf;
+                return true;
+            }
+
+            error = std::move(result.unwrapErr());
+        } else {
+            error = "magic mismatch";
+        }
+
+        delete[] cachedBuf;
+
+        std::filesystem::path p = CCFileUtils::get()->fullPathForFilename(path, false);
+        auto cachedFile = FastpngManager::get().cacheFileForChecksum(checksum);
+
+        log::warn("Failed to load cached image: {}", error);
+        log::warn("Real: {}, cached: {}", p, cachedFile);
+
+        std::error_code ec;
+        std::filesystem::remove(cachedFile, ec);
+
+        FastpngManager::get().queueForCache(p, {});
+
+        bool ret = this->_initWithPngData(buffer, size);
         delete[] buffer;
-        return result;
+
+        return ret;
     }
 
     $override
     bool initWithImageFile(const char* path, EImageFormat format) {
         size_t size = 0;
         unsigned long sizeP;
+        // TODO: maybe replace with ifstream
         unsigned char* buffer = CCFileUtils::get()->getFileData(path, "rb", &sizeP);
         size = sizeP;
 
