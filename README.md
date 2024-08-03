@@ -1,6 +1,8 @@
 # FastPNG
 
-Mod that speeds up loading times slightly.
+## Mod is obsolete, was merged into a general optimization mod called [Blaze](https://github.com/dankmeme01/blaze)
+
+Some of the code here is awful and dirty so please just visit blaze's repository if you're interested in how this is implemented lol
 
 ## How does it work?
 
